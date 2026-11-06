@@ -1,0 +1,36 @@
+{
+  "name": "workplace-front-door-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Demonstration environment built by Kode Kinetics LLC for The WorkPlace Mobile App and Digital Workforce Front Door RFP. Sample data only.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@electric-sql/pglite": "0.3.11",
+    "@neondatabase/serverless": "1.0.2",
+    "bcryptjs": "3.0.2",
+    "jose": "6.1.0",
+    "next": "15.5.29",
+    "qrcode": "1.5.4",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "22.18.12",
+    "@types/qrcode": "1.5.5",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "eslint": "9.38.0",
+    "eslint-config-next": "15.5.29",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}
