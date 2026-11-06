@@ -5,7 +5,7 @@
   --blue: #1F5FA8; --blue-hover: #174C87; --blue-press: #123E70; --blue-tint: #E8F0F9;
   --amber: #F2B233; --amber-soft: #FFF4DA; --amber-ink: #5A3F00;
   --green: #1E6B43; --green-tint: #E6F4EC; --red: #B42318; --red-tint: #FEF3F2; --orange: #9A3412;
-  --ground: #F2F5F8; --surface: #FFFFFF; --line: #D5DEE6; --line-2: #E3E9EF; --field: #A9B8C5;
+  --ground: #F2F5F8; --surface: #FFFFFF; --line: #D5DEE6; --line-2: #E3E9EF; --field: #6B7B8A;
   --on-navy: #D5E0EA;
   --r-sm: 10px; --r-md: 14px; --r-lg: 18px; --r-xl: 28px;
   --shadow-card: 0 1px 2px rgba(16,42,67,.05);
@@ -54,6 +54,7 @@ main.public-main { flex: 1; padding-bottom: 104px; }
 
 .hero { position: relative; overflow: hidden; background: var(--navy); color: #fff; padding: 14px 20px 28px; border-radius: 0 0 var(--r-xl) var(--r-xl); box-shadow: 0 22px 40px -28px rgba(18,48,74,.75); display: flex; flex-direction: column; gap: 14px; }
 .hero > * { position: relative; }
+.hero input::placeholder { color: #C9D6E2; opacity: 1; }
 .hero .orb { position: absolute; border-radius: 50%; filter: blur(36px); pointer-events: none; }
 .hero h1 { font-size: 1.875rem; line-height: 1.12; font-weight: 800; letter-spacing: -0.025em; }
 .hero p { color: var(--on-navy); font-size: 1rem; }

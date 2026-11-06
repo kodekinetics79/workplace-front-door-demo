@@ -6,7 +6,7 @@ const en = {
   nav: "Main", nav_discover: "Discover", nav_saved: "Saved", nav_track: "Track", nav_help: "Help",
   a11y_h: "Display settings", text_size: "Text size", contrast: "High contrast", on: "On", off: "Off", listen: "Listen", stop_listen: "Stop",
   home_h: "What do you need help with?", home_sub: "Explore services without signing in. Choose what fits you best.",
-  search_label: "Search services", search_ph: "Try “resume”, “training” or “CNA”", search_go: "Search",
+  search_label: "Search services", search_ph: "Resume, training, CNA…", search_go: "Search",
   browse: "Browse by goal",
   g_job: "Find a job", g_job_s: "Search, prepare and connect", g_skills: "Build skills", g_skills_s: "Explore training pathways",
   g_help: "Get career help", g_help_s: "Talk through your next step", g_youth: "I am a young adult", g_youth_s: "Ages 16 to 24: training, jobs, events",
@@ -57,6 +57,14 @@ const en = {
   privacy_h: "Privacy notice (demonstration)", privacy_body: "This demonstration stores the details you enter in a database controlled for the demo, and they are deleted when the demo resets. In the live service, The WorkPlace owns all data; contact details are used only to respond to your request; analytics are pseudonymous and contain no personal information; and text messages are sent only with your consent.",
   a11y_h2: "Accessibility statement", a11y_body: "This service is designed to meet WCAG 2.2 Level AA. It supports screen readers, keyboard use, larger text, high contrast, reduced motion and English and Spanish. Tell us about any barrier and we will fix it.",
   install: "Add to home screen", kiosk: "Lobby kiosk",
+  r_interp: "Do you need an interpreter? It is free.", i_none: "No interpreter needed", i_es: "Spanish", i_pt: "Portuguese", i_ht: "Haitian Creole", i_pl: "Polish", i_asl: "American Sign Language", i_other: "Another language",
+  r_partner: "I am referring someone else for a partner organization", p_org: "Your organization", p_name: "Your name (optional)", p_email: "Your work email",
+  p_consent: "The person I am referring agreed to be contacted by The WorkPlace.", p_hint: "Enter the first name and contact details of the person you are referring.", e_consent: "Confirm the person agreed to be contacted.",
+  h_relay: "Deaf or hard of hearing? Call 711 (Relay) and ask for The WorkPlace.", h_interp: "Need an interpreter? Ask in your request or when we call. Interpreters are free.", h_visit_ext: "Find center locations on workplace.org",
+  offline_held: "You are offline. Your request is saved on this device and will be sent automatically when you are back online.", offline_sent: "Your saved request was sent. Reference: {ref}",
+  geo_btn: "Use my location", geo_err: "We could not get your location. Choose your area instead.", geo_wait: "Finding your area…",
+  k_h: "Welcome. How can we help today?", k_sub: "Tap what you need. This screen clears itself for the next person.", k_staff: "Ask staff at the front desk", k_phone: "Continue on your phone", k_phone_p: "Scan this code to open the app on your own phone and keep your place.",
+  k_clear: "For your privacy this screen clears in {n} seconds.", k_stay: "I am still here", k_on: "This device is in lobby kiosk mode.", k_exit: "Exit kiosk mode", k_start: "Use this device as a lobby kiosk",
 };
 
 export type Dict = typeof en;
@@ -67,7 +75,7 @@ const es: Dict = {
   nav: "Principal", nav_discover: "Explorar", nav_saved: "Guardados", nav_track: "Seguimiento", nav_help: "Ayuda",
   a11y_h: "Ajustes de pantalla", text_size: "Tamaño del texto", contrast: "Alto contraste", on: "Sí", off: "No", listen: "Escuchar", stop_listen: "Detener",
   home_h: "¿Con qué necesita ayuda?", home_sub: "Explore servicios sin iniciar sesión. Elija lo que mejor le corresponda.",
-  search_label: "Buscar servicios", search_ph: "Pruebe “currículum”, “capacitación” o “CNA”", search_go: "Buscar",
+  search_label: "Buscar servicios", search_ph: "Currículum, capacitación, CNA…", search_go: "Buscar",
   browse: "Explorar por objetivo",
   g_job: "Buscar empleo", g_job_s: "Buscar, prepararse y conectar", g_skills: "Desarrollar habilidades", g_skills_s: "Explorar opciones de capacitación",
   g_help: "Recibir orientación", g_help_s: "Hablar sobre su próximo paso", g_youth: "Soy joven", g_youth_s: "De 16 a 24 años: capacitación, empleo, eventos",
@@ -118,6 +126,14 @@ const es: Dict = {
   privacy_h: "Aviso de privacidad (demostración)", privacy_body: "Esta demostración guarda los datos que escriba en una base de datos controlada para la demostración, y se eliminan cuando la demostración se restablece. En el servicio real, The WorkPlace es dueña de todos los datos; los datos de contacto se usan solo para responder a su solicitud; las analíticas son seudónimas y no contienen información personal; y los mensajes de texto se envían solo con su consentimiento.",
   a11y_h2: "Declaración de accesibilidad", a11y_body: "Este servicio está diseñado para cumplir con WCAG 2.2 nivel AA. Funciona con lectores de pantalla, teclado, texto más grande, alto contraste, movimiento reducido, en inglés y español. Avísenos de cualquier barrera y la corregiremos.",
   install: "Agregar a la pantalla de inicio", kiosk: "Quiosco del vestíbulo",
+  r_interp: "¿Necesita un intérprete? Es gratis.", i_none: "No necesito intérprete", i_es: "Español", i_pt: "Portugués", i_ht: "Criollo haitiano", i_pl: "Polaco", i_asl: "Lenguaje de señas americano", i_other: "Otro idioma",
+  r_partner: "Estoy refiriendo a otra persona en nombre de una organización asociada", p_org: "Su organización", p_name: "Su nombre (opcional)", p_email: "Su correo de trabajo",
+  p_consent: "La persona que refiero aceptó que The WorkPlace la contacte.", p_hint: "Escriba el nombre y los datos de contacto de la persona que refiere.", e_consent: "Confirme que la persona aceptó ser contactada.",
+  h_relay: "¿Persona sorda o con problemas de audición? Llame al 711 (Relay) y pida The WorkPlace.", h_interp: "¿Necesita un intérprete? Pídalo en su solicitud o cuando le llamemos. Es gratis.", h_visit_ext: "Ver los centros en workplace.org",
+  offline_held: "No tiene conexión. Su solicitud quedó guardada en este dispositivo y se enviará automáticamente cuando vuelva la conexión.", offline_sent: "Su solicitud guardada se envió. Referencia: {ref}",
+  geo_btn: "Usar mi ubicación", geo_err: "No pudimos obtener su ubicación. Elija su zona.", geo_wait: "Buscando su zona…",
+  k_h: "Bienvenido. ¿Cómo podemos ayudarle hoy?", k_sub: "Toque lo que necesita. Esta pantalla se borra sola para la siguiente persona.", k_staff: "Pregunte al personal en la recepción", k_phone: "Continúe en su teléfono", k_phone_p: "Escanee este código para abrir la aplicación en su propio teléfono.",
+  k_clear: "Por su privacidad, esta pantalla se borrará en {n} segundos.", k_stay: "Sigo aquí", k_on: "Este dispositivo está en modo quiosco.", k_exit: "Salir del modo quiosco", k_start: "Usar este dispositivo como quiosco del vestíbulo",
 };
 
 export const DICTS: Record<Lang, Dict> = { en, es };

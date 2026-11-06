@@ -16,8 +16,19 @@ export const ResidentRequest = z.object({
   note: optional(600),
   smsConsent: z.boolean().default(false),
   lang: z.enum(["en", "es"]).default("en"),
+  interpreter: z.enum(["", "es", "pt", "ht", "pl", "asl", "other"]).optional(),
+  partner: z.boolean().default(false),
+  partnerOrg: optional(120),
+  referrerName: optional(80),
+  referrerEmail: optional(120),
+  partnerConsent: z.boolean().default(false),
   website: z.string().max(0).optional(), // honeypot: real people never fill this
 }).superRefine((v, ctx) => {
+  if (v.partner) {
+    if (!v.partnerOrg) ctx.addIssue({ code: "custom", path: ["partnerOrg"], message: "e_req" });
+    if (!v.referrerEmail || !z.email().safeParse(v.referrerEmail).success) ctx.addIssue({ code: "custom", path: ["referrerEmail"], message: "e_email" });
+    if (!v.partnerConsent) ctx.addIssue({ code: "custom", path: ["partnerConsent"], message: "e_consent" });
+  }
   if (v.method !== "email" && !normalizePhone(v.phone)) ctx.addIssue({ code: "custom", path: ["phone"], message: "e_phone" });
   if (v.method === "email" && !z.email().safeParse(v.email ?? "").success) ctx.addIssue({ code: "custom", path: ["email"], message: "e_email" });
   if (v.email && !z.email().safeParse(v.email).success) ctx.addIssue({ code: "custom", path: ["email"], message: "e_email" });

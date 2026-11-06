@@ -40,8 +40,8 @@ export function EmployerForm({ t, lang }: { t: Dict; lang: "en" | "es" }) {
         const ek = k === "contact" ? "firstName" : k;
         return (
           <div key={k} className="field"><label htmlFor={`e-${k}`}>{l}</label>
-            <input id={`e-${k}`} name={k} type={ty} autoComplete={ac} className="input" aria-invalid={!!errors[ek]} maxLength={120} />
-            {err(ek) && <span className="err">{err(ek)}</span>}</div>);
+            <input id={`e-${k}`} name={k} type={ty} autoComplete={ac} className="input" aria-invalid={!!errors[ek]} aria-describedby={errors[ek] ? `e-${k}-err` : undefined} maxLength={120} />
+            {err(ek) && <span id={`e-${k}-err`} className="err">{err(ek)}</span>}</div>);
       })}
       <div className="field"><label htmlFor="e-openings">{t.e_openings}</label><input id="e-openings" name="openings" type="number" min={0} inputMode="numeric" className="input" /></div>
       <div className="field"><label htmlFor="e-note">{t.r_note}</label><textarea id="e-note" name="note" className="textarea" maxLength={600} /></div>

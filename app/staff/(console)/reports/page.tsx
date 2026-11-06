@@ -21,10 +21,18 @@ export default async function Reports() {
         <div className="kpi"><span className="l">Spanish-language requests</span><span className="v">{r.esShare}%</span><span className="small">Of all requests</span></div>
         <div className="kpi"><span className="l">Text consent rate</span><span className="v">{r.consentShare}%</span><span className="small">{r.optouts} opt-out{r.optouts === 1 ? "" : "s"} in 30 days</span></div>
       </div>
+      <section className="panel" aria-labelledby="eq">
+        <h2 id="eq">Is anyone being left behind?</h2>
+        <p className="small">Request completion by language, last 30 days. A group is flagged when its completion trails the overall rate ({r.overall}%) by 10 points or more. Age band, device class and channel cuts use the same rule in production.</p>
+        <div className="table-wrap"><table className="t" style={{ minWidth: 420 }}>
+          <thead><tr><th scope="col">Group</th><th scope="col">Started</th><th scope="col">Sent</th><th scope="col">Completion</th><th scope="col">Status</th></tr></thead>
+          <tbody>{r.equity.map((e) => <tr key={e.group}><td>{e.group}</td><td>{e.started}</td><td>{e.sent}</td><td>{e.rate}%</td><td>{e.flag ? <span className="st st-review">Review: trails overall</span> : <span className="st st-contacted">Within range</span>}</td></tr>)}</tbody>
+        </table></div>
+      </section>
       <div className="c-split">
         <section className="wide panel" aria-labelledby="fn">
           <h2 id="fn">Most people who start a request finish it</h2>
-          <p className="small">Navigation funnel, last 30 days. Includes sample history for the demonstration.</p>
+          <p className="small">Navigation funnel, last 30 days. Includes synthetic history generated for the demonstration, plus live activity.</p>
           {r.funnel.map(([k, v], i) => (
             <div key={k} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span>{k}</span><strong>{v.toLocaleString()}{i > 0 ? <span className="small" style={{ fontWeight: 400 }}> · {pct(v, r.funnel[i - 1][1])} of previous</span> : null}</strong></div>
@@ -33,10 +41,13 @@ export default async function Reports() {
         </section>
         <section className="side panel" aria-labelledby="bs">
           <h2 id="bs">Requests by service</h2>
+          <p className="small">Live requests in this demonstration database.</p>
           {r.byService.map((x) => (
             <div key={x.label} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 90px 28px", gap: 10, alignItems: "center" }}>
               <span>{x.label}</span><div className="bar" aria-hidden="true"><span style={{ width: `${(x.n / maxS) * 100}%`, background: "var(--navy)" }} /></div><strong style={{ textAlign: "right" }}>{x.n}</strong>
             </div>))}
+          <h2 style={{ marginTop: 8 }}>Requests by channel</h2>
+          <p className="small">{r.channels.map((c) => `${c.channel === "app" ? "App and web" : c.channel === "partner" ? "Partner referral" : c.channel === "kiosk" ? "Lobby kiosk" : c.channel}: ${c.n}`).join(" · ")}</p>
           <p className="small">Text messages, 30 days: {r.sms.out} sent ({r.sms.segs} billable segments), {r.sms.inn} received.</p>
         </section>
       </div>

@@ -4,7 +4,8 @@ import { createReferral, lookupStatus } from "@/lib/referrals";
 import { verifyAuditChain } from "@/lib/audit";
 import { handleInbound, sendSms, consentStatus, segmentCount, normalizePhone, validTwilioSignature } from "@/lib/sms";
 import { can, MATRIX } from "@/lib/rbac";
-import { login, staffFromToken, revokeSessions } from "@/lib/auth";
+import { login, verifyMfa, staffFromToken, revokeSessions } from "@/lib/auth";
+import { totp, verifyTotp } from "@/lib/totp";
 import { rateLimit } from "@/lib/ratelimit";
 import { publishedServices, searchServices, readingGrade } from "@/lib/services";
 import { createHmac } from "crypto";
@@ -106,7 +107,13 @@ describe("authorization and sessions", () => {
     expect(MATRIX["data.export"]).toEqual(["admin"]);
   });
   it("logs in, rejects bad passwords, locks after 5 failures, revokes sessions", async () => {
-    const { token } = await login("counselor@demo.workplace", "Counselor-Demo-2026");
+    const step1 = await login("counselor@demo.workplace", "Counselor-Demo-2026");
+    expect("mfa" in step1).toBe(true);
+    if (!("mfa" in step1)) return;
+    expect(await staffFromToken(step1.mfa)).toBeNull(); // a half-finished sign-in is not a session
+    await expect(verifyMfa(step1.mfa, "000000")).rejects.toMatchObject({ status: 401 });
+    const sec = (await q1<{ mfa_secret: string }>("SELECT mfa_secret FROM staff_users WHERE id = 'u_counselor'"))!.mfa_secret;
+    const { token } = await verifyMfa(step1.mfa, totp(sec));
     expect((await staffFromToken(token))?.role).toBe("counselor");
     await expect(login("counselor@demo.workplace", "wrong")).rejects.toMatchObject({ status: 401 });
     await expect(login("nobody@demo.workplace", "x")).rejects.toMatchObject({ status: 401 });
@@ -115,6 +122,15 @@ describe("authorization and sessions", () => {
     for (let i = 0; i < 5; i++) await login("okafor@demo.workplace", "bad").catch(() => {});
     await expect(login("okafor@demo.workplace", "Counselor-Demo-2026")).rejects.toMatchObject({ status: 423 });
     expect(await staffFromToken("forged.token.value")).toBeNull();
+  });
+});
+
+describe("TOTP", () => {
+  it("matches RFC 6238 test vector and tolerates one step of drift", () => {
+    const secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"; // "12345678901234567890"
+    expect(totp(secret, 59_000)).toBe("287082");
+    expect(verifyTotp(secret, totp(secret, 1_000_000 - 30_000), 1_000_000)).toBe(true);
+    expect(verifyTotp(secret, totp(secret, 1_000_000 - 90_000), 1_000_000)).toBe(false);
   });
 });
 
@@ -142,5 +158,32 @@ describe("reports", () => {
     const r = await getReport(30);
     expect(r.funnel[0][1]).toBeGreaterThan(0);
     expect(r.byService.length).toBeGreaterThan(0);
+  });
+});
+
+describe("SMS hardening and retention", () => {
+  it("dedupes a retried inbound webhook by MessageSid", async () => {
+    const { handleInbound } = await import("@/lib/sms");
+    await handleInbound("+12035550190", "HELP", "test", "SMdup1");
+    const again = await handleInbound("+12035550190", "HELP", "test", "SMdup1");
+    expect(again).toBeNull();
+    const n = await q1<{ n: number }>("SELECT count(*)::int n FROM sms_messages WHERE provider_sid = 'SMdup1'");
+    expect(n?.n).toBe(1);
+  });
+  it("sends at most one automated confirmation per number per day", async () => {
+    const { recordConsent, sendSms } = await import("@/lib/sms");
+    await recordConsent("+12035550199", "opt_in", "test");
+    expect((await sendSms({ phone: "+12035550199", body: "c1", kind: "confirmation" })).ok).toBe(true);
+    expect((await sendSms({ phone: "+12035550199", body: "c2", kind: "confirmation" })).ok).toBe(false);
+  });
+  it("applies retention: old message bodies removed, closed referrals de-identified", async () => {
+    const { applyRetention } = await import("@/lib/retention");
+    await q("UPDATE sms_messages SET created_at = now() - interval '200 days' WHERE phone = '+12035550199'");
+    await q("UPDATE referrals SET updated_at = now() - interval '400 days' WHERE status = 'closed'");
+    const r = await applyRetention();
+    expect(r.messageBodiesRemoved).toBeGreaterThan(0);
+    expect(r.referralsDeidentified).toBeGreaterThan(0);
+    const left = await q("SELECT 1 FROM referrals WHERE status = 'closed' AND phone IS NOT NULL");
+    expect(left.length).toBe(0);
   });
 });

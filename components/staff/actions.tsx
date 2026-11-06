@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "../Icon";
 
@@ -28,29 +28,53 @@ export function LogoutButton() {
     onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); router.push("/staff/login"); router.refresh(); }}><Icon name="logout" size={16} />Sign out</button>;
 }
 
-export function LoginForm({ accounts }: { accounts: { email: string; role: string; password: string; name: string }[] }) {
+export function LoginForm({ accounts, demoMode }: { accounts: { email: string; role: string; password: string; name: string }[]; demoMode: boolean }) {
   const router = useRouter();
   const [err, setErr] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
+  const [challenge, setChallenge] = useState<string | null>(null); const [code, setCode] = useState("");
+  const [demoCode, setDemoCode] = useState<{ code: string; secondsLeft: number } | null>(null);
+  const codeRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (challenge) codeRef.current?.focus(); }, [challenge]);
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr(null);
-    try { await call("/api/auth/login", "POST", { email, password }); router.push("/staff"); router.refresh(); }
-    catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
+    try {
+      if (!challenge) {
+        const d = await call("/api/auth/login", "POST", { email, password });
+        if (d.mfa) { setChallenge(d.mfa); return; }
+      } else { await call("/api/auth/mfa", "POST", { challenge, code }); }
+      router.push("/staff"); router.refresh();
+    } catch (x) { setErr((x as Error).message); if ((x as Error).message.includes("expired")) { setChallenge(null); setCode(""); } } finally { setBusy(false); }
   }
+  async function showDemoCode() { try { setDemoCode(await call("/api/auth/demo-code", "POST", { email })); } catch (x) { setErr((x as Error).message); } }
   return (
     <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {err && <div role="alert" className="alert">{err}</div>}
-      <div className="field"><label htmlFor="em">Work email</label><input id="em" className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-      <div className="field"><label htmlFor="pw">Password</label><input id="pw" className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
-      <button className="btn btn-primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
-      <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-        <p style={{ fontWeight: 700 }}>Demo accounts for evaluators</p>
-        {accounts.map((a) => (
-          <button key={a.email} type="button" className="c-btn" style={{ justifyContent: "space-between", minHeight: 44 }} onClick={() => { setEmail(a.email); setPassword(a.password); }}>
-            <span>{a.role}</span><span style={{ fontWeight: 600, color: "var(--ink-2)" }}>{a.name}</span>
-          </button>))}
-        <p className="small">Choosing an account fills in its demo credentials. Production would use The WorkPlace&apos;s single sign-on with multi-factor authentication.</p>
-      </div>
+      {!challenge ? (<>
+        <div className="field"><label htmlFor="em">Work email</label><input id="em" className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+        <div className="field"><label htmlFor="pw">Password</label><input id="pw" className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
+        <button className="btn btn-primary" disabled={busy}>{busy ? "Checking…" : "Continue"}</button>
+      </>) : (<>
+        <p style={{ display: "flex", gap: 8, alignItems: "center" }}><Icon name="lock" size={18} /><span>Step 2 of 2: enter the 6-digit code from your authenticator app.</span></p>
+        <div className="field"><label htmlFor="otp">Authenticator code</label><input ref={codeRef} id="otp" className="input" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} required style={{ letterSpacing: ".3em", fontSize: "1.25rem" }} /></div>
+        <button className="btn btn-primary" disabled={busy || code.length !== 6}>{busy ? "Verifying…" : "Sign in"}</button>
+        {demoMode && (
+          <div className="note" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+            <span className="small" style={{ color: "var(--ink-2)" }}>Evaluator helper for demo accounts only. In production each person scans a QR code once into their own authenticator app.</span>
+            <button type="button" className="c-btn" onClick={showDemoCode}>Show the current demo code</button>
+            {demoCode && <span style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: ".2em" }} aria-live="polite">{demoCode.code} <span className="small" style={{ letterSpacing: 0, fontWeight: 400 }}>changes in {demoCode.secondsLeft}s</span></span>}
+          </div>)}
+        <button type="button" className="c-btn" onClick={() => { setChallenge(null); setCode(""); setDemoCode(null); }}>Start again</button>
+      </>)}
+      {!challenge && (
+        <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+          <p style={{ fontWeight: 700 }}>Demo accounts for evaluators</p>
+          {accounts.map((a) => (
+            <button key={a.email} type="button" className="c-btn" style={{ justifyContent: "space-between", minHeight: 44 }} onClick={() => { setEmail(a.email); setPassword(a.password); }}>
+              <span>{a.role}</span><span style={{ fontWeight: 600, color: "var(--ink-2)" }}>{a.name}</span>
+            </button>))}
+          <p className="small">Choosing an account fills in its demo credentials. Every staff account requires a password and an authenticator code. Single sign-on with Microsoft Entra ID is available as an option.</p>
+        </div>)}
     </form>
   );
 }

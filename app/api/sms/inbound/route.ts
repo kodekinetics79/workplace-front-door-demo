@@ -17,6 +17,6 @@ export async function POST(req: Request) {
     return new Response("Messaging provider not configured", { status: 503 });
   }
   try { await rateLimit(`sms:${clientKey(req)}`, 300, 60); } catch { return new Response("Too many requests", { status: 429 }); }
-  await handleInbound(params.From ?? "", params.Body ?? "", "sms_keyword");
+  await handleInbound(params.From ?? "", params.Body ?? "", "sms_keyword", params.MessageSid);
   return new Response(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`, { headers: { "content-type": "text/xml" } });
 }

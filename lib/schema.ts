@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS staff_users (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE staff_users ADD COLUMN IF NOT EXISTS mfa_secret TEXT;
+
 CREATE TABLE IF NOT EXISTS services (
   id TEXT PRIMARY KEY,
   goals TEXT[] NOT NULL,
@@ -54,6 +56,10 @@ CREATE TABLE IF NOT EXISTS referrals (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE referrals ADD COLUMN IF NOT EXISTS interpreter TEXT;
+ALTER TABLE referrals ADD COLUMN IF NOT EXISTS partner_org TEXT;
+ALTER TABLE referrals ADD COLUMN IF NOT EXISTS referrer_name TEXT;
+ALTER TABLE referrals ADD COLUMN IF NOT EXISTS referrer_email TEXT;
 CREATE INDEX IF NOT EXISTS referrals_status_idx ON referrals(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS referrals_phone_idx ON referrals(phone);
 
@@ -79,6 +85,9 @@ CREATE TABLE IF NOT EXISTS sms_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS sms_phone_idx ON sms_messages(phone, created_at);
+ALTER TABLE sms_messages ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE sms_messages ADD COLUMN IF NOT EXISTS purged BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS sms_provider_sid_uq ON sms_messages(provider_sid) WHERE provider_sid IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS sms_consent (
   phone TEXT PRIMARY KEY,

@@ -5,9 +5,10 @@ import { ReferralControls, SmsComposer, SimulateInbound, NoteForm } from "./acti
 import type { Staff } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
-type R = { id: string; ref: string; kind: string; first_name: string; company: string | null; phone: string | null; email: string | null; contact_method: string; best_time: string; note: string | null; language: string; area: string | null; status: string; assigned_to: string | null; sms_consent: boolean; created_at: string; title: string | null; assignee: string | null; consent: string | null; last_in: string | null };
+type R = { interpreter: string | null; partner_org: string | null; referrer_name: string | null; referrer_email: string | null; channel: string; dup: number; id: string; ref: string; kind: string; first_name: string; company: string | null; phone: string | null; email: string | null; contact_method: string; best_time: string; note: string | null; language: string; area: string | null; status: string; assigned_to: string | null; sms_consent: boolean; created_at: string; title: string | null; assignee: string | null; consent: string | null; last_in: string | null };
 const ST: Record<string, string> = { new: "New", review: "Staff review", contacted: "Contacted", closed: "Closed" };
 const AREA: Record<string, string> = { bridgeport: "Bridgeport", stamford: "Stamford", valley: "Lower Naugatuck Valley", online: "Online" };
+const INTERP: Record<string, string> = { es: "Spanish", pt: "Portuguese", ht: "Haitian Creole", pl: "Polish", asl: "ASL", other: "Other" };
 const TIME: Record<string, string> = { any: "Any time", am: "Mornings", pm: "Afternoons" };
 const age = (d: string) => { const m = Math.round((Date.now() - new Date(d).getTime()) / 60000); return m < 60 ? `${m} min` : m < 1440 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`; };
 
@@ -16,9 +17,12 @@ export async function Queue({ me, filter, selected, search, inbox }: { me: Staff
   if (inbox) where.push("EXISTS (SELECT 1 FROM sms_messages m WHERE m.referral_id = r.id)");
   else if (filter === "open") where.push("r.status <> 'closed'");
   else if (filter === "mine") { params.push(me.id); where.push(`r.assigned_to = $${params.length} AND r.status <> 'closed'`); }
+  else if (filter === "es") where.push("r.language = 'es' AND r.status <> 'closed'");
+  else if (filter === "partner") where.push("r.partner_org IS NOT NULL AND r.status <> 'closed'");
   else if (["new", "review", "contacted", "closed"].includes(filter)) { params.push(filter); where.push(`r.status = $${params.length}`); }
   if (search) { params.push(`%${search.toLowerCase()}%`); where.push(`(lower(r.first_name) LIKE $${params.length} OR lower(r.ref) LIKE $${params.length} OR lower(coalesce(r.company,'')) LIKE $${params.length})`); }
   const rows = await q<R>(`SELECT r.*, s.live->'en'->>'title' title, u.name assignee, c.status consent,
+      (SELECT count(*)::int FROM referrals r2 WHERE r.phone IS NOT NULL AND r2.phone = r.phone AND abs(extract(epoch FROM r2.created_at - r.created_at)) < 86400) dup,
       (SELECT body FROM sms_messages m WHERE m.referral_id = r.id AND m.direction='in' ORDER BY created_at DESC LIMIT 1) last_in
     FROM referrals r LEFT JOIN services s ON s.id = r.service_id LEFT JOIN staff_users u ON u.id = r.assigned_to LEFT JOIN sms_consent c ON c.phone = r.phone
     ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY CASE r.status WHEN 'new' THEN 0 WHEN 'review' THEN 1 WHEN 'contacted' THEN 2 ELSE 3 END, r.created_at DESC LIMIT 200`, params);
@@ -50,7 +54,7 @@ export async function Queue({ me, filter, selected, search, inbox }: { me: Staff
       <div className="c-split">
         <div className="wide" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "space-between", alignItems: "center" }}>
-            {!inbox && <nav className="pills" aria-label="Filter referrals">{[["open", "Open"], ["mine", "Assigned to me"], ["new", "New"], ["review", "Staff review"], ["contacted", "Contacted"], ["closed", "Closed"], ["all", "All"]].map(([k, l]) => <Link key={k} href={`/staff?f=${k}${search ? `&q=${encodeURIComponent(search)}` : ""}`} aria-current={filter === k ? "true" : undefined}>{l}</Link>)}</nav>}
+            {!inbox && <nav className="pills" aria-label="Filter referrals">{[["open", "Open"], ["mine", "Assigned to me"], ["new", "New"], ["es", "Spanish"], ["partner", "Partner referrals"], ["review", "Staff review"], ["contacted", "Contacted"], ["closed", "Closed"], ["all", "All"]].map(([k, l]) => <Link key={k} href={`/staff?f=${k}${search ? `&q=${encodeURIComponent(search)}` : ""}`} aria-current={filter === k ? "true" : undefined}>{l}</Link>)}</nav>}
             <form method="get" action={base} role="search" style={{ display: "flex", gap: 6 }}>
               {!inbox && <input type="hidden" name="f" value={filter} />}
               <label htmlFor="qq" className="sr-only">Search name, company or reference</label>
@@ -66,7 +70,14 @@ export async function Queue({ me, filter, selected, search, inbox }: { me: Staff
                 {rows.map((r) => (
                   <tr key={r.id} className={r.id === sel?.id ? "sel" : undefined}>
                     <td style={{ whiteSpace: "nowrap" }}><Link href={qs({ id: r.id })} style={{ fontWeight: 800 }} aria-current={r.id === sel?.id ? "true" : undefined}>{r.ref}</Link></td>
-                    <td>{r.first_name}{r.company ? <span className="small"> · {r.company}</span> : null}{r.language === "es" ? <span className="tag" style={{ marginLeft: 6, padding: "1px 6px" }} title="Spanish">ES</span> : null}</td>
+                    <td>{r.first_name}{r.company ? <span className="small"> · {r.company}</span> : null}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 3 }}>
+                        {r.language === "es" && <span className="st st-new">Spanish</span>}
+                        {r.interpreter && <span className="st st-review">Interpreter: {INTERP[r.interpreter] ?? r.interpreter}</span>}
+                        {r.partner_org && <span className="st st-contacted">Partner referral</span>}
+                        {r.channel === "kiosk" && <span className="st st-closed">Lobby kiosk</span>}
+                        {r.dup > 1 && <span className="st" style={{ color: "#9A3412", background: "#FFEDD5" }}>Possible duplicate</span>}
+                      </div></td>
                     <td>{r.kind === "employer" ? "Employer inquiry" : r.title ?? "General career help"}</td>
                     <td>{r.contact_method === "callback" ? "Callback" : r.contact_method === "text" ? "Text" : "Email"}{inbox && r.last_in ? <div className="small" style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>“{r.last_in}”</div> : null}</td>
                     <td className="small">{age(r.created_at)}</td>
@@ -98,6 +109,9 @@ export async function Queue({ me, filter, selected, search, inbox }: { me: Staff
               <dt>Preferred contact</dt><dd>{sel.contact_method === "callback" ? "Callback" : sel.contact_method === "text" ? "Text" : "Email"}</dd>
               {sel.phone && (<><dt>Phone</dt><dd>{maskPhone(sel.phone)}</dd></>)}
               {sel.email && (<><dt>Email</dt><dd>{sel.email}</dd></>)}
+              {sel.interpreter && (<><dt>Interpreter</dt><dd style={{ color: "var(--orange)" }}>{INTERP[sel.interpreter] ?? sel.interpreter}</dd></>)}
+              {sel.partner_org && (<><dt>Referred by</dt><dd>{sel.partner_org}{sel.referrer_name ? `, ${sel.referrer_name}` : ""}</dd><dt>Partner email</dt><dd>{sel.referrer_email}</dd></>)}
+              {sel.dup > 1 && (<><dt>Duplicate check</dt><dd style={{ color: "var(--orange)" }}>{sel.dup - 1} other request(s) from this number in 24 h</dd></>)}
               <dt>Best time</dt><dd>{TIME[sel.best_time] ?? sel.best_time}</dd>
               <dt>Text consent</dt><dd style={{ color: sel.consent === "opted_in" ? "var(--green)" : sel.consent === "opted_out" ? "var(--red)" : undefined }}>{sel.consent === "opted_in" ? "Opted in" : sel.consent === "opted_out" ? "Opted out (STOP)" : "Not given"}</dd>
               <dt>Received</dt><dd>{new Date(sel.created_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "America/New_York" })}</dd>

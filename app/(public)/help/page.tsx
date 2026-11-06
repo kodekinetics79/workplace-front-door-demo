@@ -7,7 +7,7 @@ export default async function Help() {
   const { lang, t } = await getDict();
   const phone = process.env.NEXT_PUBLIC_WORKPLACE_PHONE || "";
   const rows: [string, string, string][] = [
-    [phone ? `tel:${phone}` : "/request", "phone", t.h_call], [phone ? `sms:${phone}` : "/request", "chat", t.h_text], ["/request", "pin", t.h_visit],
+    [phone ? `tel:${phone}` : "/request", "phone", t.h_call], [phone ? `sms:${phone}` : "/request", "chat", t.h_text], ["https://www.workplace.org/", "pin", t.h_visit_ext],
     ["/privacy", "shield", t.h_privacy], ["/accessibility", "access", t.h_a11y],
   ];
   return (
@@ -19,6 +19,12 @@ export default async function Help() {
             <span className="tile" style={{ background: "var(--blue-tint)", color: "var(--blue)", width: 44, height: 44 }}><Icon name={ic} /></span>
             <span className="grow t">{l}</span><Icon name="chevron" size={20} />
           </Link>))}
+        </div>
+      </div>
+      <div className="section">
+        <div className="card pad" style={{ gap: 8 }}>
+          <p style={{ display: "flex", gap: 10 }}><Icon name="access" /><span>{t.h_relay}</span></p>
+          <p style={{ display: "flex", gap: 10 }}><Icon name="chat" /><span>{t.h_interp}</span></p>
         </div>
       </div>
       <section className="section" aria-labelledby="sm">

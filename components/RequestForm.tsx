@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "./Icon";
-import { ping } from "./client";
+import { ping, holdOffline, isKiosk } from "./client";
 import type { Dict } from "@/lib/i18n";
 
 type Errors = Record<string, string>;
@@ -16,6 +16,8 @@ export function RequestForm({ t, lang, serviceId, serviceTitle }: { t: Dict; lan
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [partner, setPartner] = useState(false);
+  const [held, setHeld] = useState(false);
   const alertRef = useRef<HTMLDivElement>(null);
   useEffect(() => { ping("request_start", { service: serviceId ?? "general" }); }, [serviceId]);
   const digits = phone.replace(/\D/g, "");
@@ -30,7 +32,10 @@ export function RequestForm({ t, lang, serviceId, serviceTitle }: { t: Dict; lan
       firstName: String(f.get("firstName") ?? ""), phone: method === "email" ? String(f.get("phone2") ?? "") || undefined : phone,
       email: method === "email" ? String(f.get("email") ?? "") : undefined, bestTime: String(f.get("bestTime") ?? "any"),
       area: String(f.get("area") ?? ""), note: String(f.get("note") ?? ""), smsConsent: showSms && sms, website: String(f.get("website") ?? ""),
+      interpreter: String(f.get("interpreter") ?? ""), partner, partnerOrg: String(f.get("partnerOrg") ?? ""), referrerName: String(f.get("referrerName") ?? ""),
+      referrerEmail: String(f.get("referrerEmail") ?? ""), partnerConsent: f.get("partnerConsent") === "on", channel: isKiosk() ? "kiosk" : "app",
     };
+    if (typeof navigator !== "undefined" && !navigator.onLine) { holdOffline(body); setHeld(true); return; }
     setBusy(true); setFormError(null);
     try {
       const res = await fetch("/api/requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -40,8 +45,9 @@ export function RequestForm({ t, lang, serviceId, serviceTitle }: { t: Dict; lan
       if (!res.ok) { setFormError(t.e_generic); setTimeout(() => alertRef.current?.focus(), 0); return; }
       try { localStorage.setItem("wp_last_ref", data.ref); } catch {}
       router.push(`/done?ref=${encodeURIComponent(data.ref)}&m=${method}&sms=${data.smsSent ? 1 : 0}${serviceId ? `&service=${serviceId}` : ""}`);
-    } catch { setFormError(t.e_generic); } finally { setBusy(false); }
+    } catch { holdOffline(body); setHeld(true); } finally { setBusy(false); }
   }
+  if (held) return (<div className="section"><div role="status" className="card pad"><Icon name="info" size={22} /><p style={{ fontWeight: 700 }}>{t.offline_held}</p><Link href="/" className="btn btn-secondary btn-sm">{t.back_discover}</Link></div></div>);
   const err = (k: string) => (errors[k] ? (t as Record<string, string>)[errors[k]] ?? t.e_req : null);
   const hasErr = Object.keys(errors).length > 0;
 
@@ -106,6 +112,31 @@ export function RequestForm({ t, lang, serviceId, serviceTitle }: { t: Dict; lan
             <span style={{ fontWeight: 700 }}>{t.sms_h}</span><span style={{ fontSize: ".8125rem", color: "var(--ink-2)", lineHeight: 1.45 }}>{t.sms_p}</span>
           </label>
         </div>
+      )}
+      <div className="field">
+        <label htmlFor="interpreter">{t.r_interp}</label>
+        <select id="interpreter" name="interpreter" className="select" defaultValue="">
+          <option value="">{t.i_none}</option><option value="es">{t.i_es}</option><option value="pt">{t.i_pt}</option><option value="ht">{t.i_ht}</option>
+          <option value="pl">{t.i_pl}</option><option value="asl">{t.i_asl}</option><option value="other">{t.i_other}</option>
+        </select>
+      </div>
+      <div className="check">
+        <input id="partner" type="checkbox" checked={partner} onChange={(e) => setPartner(e.target.checked)} />
+        <label htmlFor="partner" style={{ fontWeight: 700, cursor: "pointer" }}>{t.r_partner}</label>
+      </div>
+      {partner && (
+        <fieldset className="card pad" style={{ margin: 0, gap: 14 }}>
+          <legend className="sr-only">{t.r_partner}</legend>
+          <p className="small">{t.p_hint}</p>
+          <div className="field"><label htmlFor="partnerOrg">{t.p_org}</label><input id="partnerOrg" name="partnerOrg" className="input" maxLength={120} aria-invalid={!!errors.partnerOrg} aria-describedby={errors.partnerOrg ? "partnerOrg-e" : undefined} />{err("partnerOrg") && <span id="partnerOrg-e" className="err">{err("partnerOrg")}</span>}</div>
+          <div className="field"><label htmlFor="referrerName">{t.p_name}</label><input id="referrerName" name="referrerName" className="input" maxLength={80} autoComplete="name" /></div>
+          <div className="field"><label htmlFor="referrerEmail">{t.p_email}</label><input id="referrerEmail" name="referrerEmail" type="email" className="input" maxLength={120} autoComplete="email" aria-invalid={!!errors.referrerEmail} aria-describedby={errors.referrerEmail ? "referrerEmail-e" : undefined} />{err("referrerEmail") && <span id="referrerEmail-e" className="err">{err("referrerEmail")}</span>}</div>
+          <div className="check" style={{ border: errors.partnerConsent ? "2px solid var(--red)" : undefined }}>
+            <input id="partnerConsent" name="partnerConsent" type="checkbox" aria-describedby={errors.partnerConsent ? "pc-e" : undefined} />
+            <label htmlFor="partnerConsent" style={{ cursor: "pointer" }}>{t.p_consent}</label>
+          </div>
+          {err("partnerConsent") && <span id="pc-e" className="err">{err("partnerConsent")}</span>}
+        </fieldset>
       )}
       <p style={{ fontSize: ".875rem", color: "var(--ink-2)" }}>{t.privacy} <Link href="/privacy">{t.privacy_link}</Link></p>
       <button type="submit" className="btn btn-primary btn-block" disabled={busy} aria-busy={busy}>{busy ? t.sending : t.send}</button>

@@ -25,7 +25,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
       <header className="c-top glass">
         <Link href="/staff" style={{ display: "flex", alignItems: "center", gap: 10, color: "#fff", textDecoration: "none" }}><Mark /><span style={{ fontWeight: 800, fontSize: "1.0625rem" }}>The WorkPlace</span><span style={{ color: "var(--on-navy)", fontSize: ".875rem" }}>Staff console</span></Link>
         <span style={{ fontSize: ".8125rem", fontWeight: 700, background: "var(--amber-soft)", color: "var(--amber-ink)", borderRadius: 6, padding: "3px 9px" }}>Demonstration with sample data</span>
-        <div className="who"><span>{me.name} · {ROLE_LABEL[me.role]}</span><span className="badge-mfa">Session 8h</span><Link href="/" style={{ color: "#fff" }}>Public app</Link><LogoutButton /></div>
+        <div className="who"><span>{me.name} · {ROLE_LABEL[me.role]}</span><span className="badge-mfa">MFA verified</span><Link href="/" style={{ color: "#fff" }}>Public app</Link><LogoutButton /></div>
       </header>
       <div className="c-body">
         <NavLinks items={items} note={note} />

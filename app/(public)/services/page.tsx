@@ -4,7 +4,7 @@ import { getDict } from "@/lib/lang";
 import { publishedServices, searchServices } from "@/lib/services";
 import { fmt } from "@/lib/i18n";
 import { Icon } from "@/components/Icon";
-import { SaveButton, Ping } from "@/components/client";
+import { SaveButton, Ping, NearestArea } from "@/components/client";
 
 export const metadata: Metadata = { title: "Services" };
 const GOAL_KEYS = ["job", "skills", "help", "youth"] as const;
@@ -42,6 +42,7 @@ export default async function Services({ searchParams }: { searchParams: Promise
             <button type="submit" className="btn btn-quiet">{t.apply}</button>
           </div>
         </form>
+        <NearestArea t={t} hidden={{ ...(goal && !q ? { goal } : {}), ...(q ? { q } : {}), ...(format !== "all" ? { format } : {}) }} />
         <nav aria-label={t.format} className="chips">
           {[["all", t.f_all], ["inperson", lang === "es" ? "En persona" : "In person"], ["phone", lang === "es" ? "Teléfono" : "Phone"], ["online", lang === "es" ? "En línea" : "Online"]].map(([k, l]) => (
             <Link key={k} href={link({ format: k })} className="chip" aria-current={format === k ? "true" : undefined}>{l}</Link>

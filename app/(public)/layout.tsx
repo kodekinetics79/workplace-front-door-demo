@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getDict } from "@/lib/lang";
 import { Icon, Mark } from "@/components/Icon";
-import { DisplaySettings, LangToggle, SessionPing, TabBar } from "@/components/client";
+import { DisplaySettings, LangToggle, SessionPing, TabBar, OutboxFlusher, KioskGuard } from "@/components/client";
 
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
   const { lang, t } = await getDict();
@@ -19,6 +19,8 @@ export default async function PublicLayout({ children }: { children: React.React
       <main id="main" className="public-main" tabIndex={-1}>{children}</main>
       <TabBar t={t} />
       <SessionPing />
+      <OutboxFlusher sentText={t.offline_sent} />
+      <KioskGuard t={t} />
     </div>
   );
 }

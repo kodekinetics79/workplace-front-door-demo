@@ -17,6 +17,8 @@ async function makeRunner(): Promise<Runner> {
       exec: async (text) => { await pool.query(text); },
     };
   }
+  // Fail closed: production must have a durable database unless explicitly running as a throwaway preview.
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_EPHEMERAL_DB !== "1" && !process.env.VITEST) throw new Error("DATABASE_URL is required in production");
   // Local development, tests and pre-provisioning previews: in-process Postgres (PGlite).
   const { PGlite } = await import("@electric-sql/pglite");
   const pg = new PGlite();

@@ -33,9 +33,10 @@ export async function createReferral(input: unknown): Promise<CreateResult> {
   const phone = v.method === "email" ? normalizePhone(v.phone) : normalizePhone(v.phone)!;
   const consent = !!(v.smsConsent && phone && v.method !== "email");
   const id = newId(); const ref = await uniqueRef("WP");
-  await q(`INSERT INTO referrals (id, ref, kind, service_id, first_name, phone, email, contact_method, best_time, note, language, area, sms_consent) VALUES ($1,$2,'resident',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-    [id, ref, svc?.id ?? null, v.firstName, phone, v.email?.toLowerCase() ?? null, v.method, v.bestTime, v.note ?? null, v.lang, v.area || null, consent]);
-  await audit({ actorId: null, actorLabel: "Public app", action: "Help request received", entity: "referral", entityId: id, detail: { ref, smsConsent: consent } });
+  await q(`INSERT INTO referrals (id, ref, kind, service_id, first_name, phone, email, contact_method, best_time, note, language, area, sms_consent, interpreter, partner_org, referrer_name, referrer_email, channel) VALUES ($1,$2,'resident',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+    [id, ref, svc?.id ?? null, v.firstName, phone, v.email?.toLowerCase() ?? null, v.method, v.bestTime, v.note ?? null, v.lang, v.area || null, consent, v.interpreter || null,
+     v.partner ? v.partnerOrg ?? null : null, v.partner ? v.referrerName ?? null : null, v.partner ? v.referrerEmail?.toLowerCase() ?? null : null, v.partner ? "partner" : (input as { channel?: string }).channel === "kiosk" ? "kiosk" : "app"]);
+  await audit({ actorId: null, actorLabel: v.partner ? `Partner referral (${v.partnerOrg})` : "Public app", action: v.partner ? "Partner referral received" : "Help request received", entity: "referral", entityId: id, detail: { ref, smsConsent: consent, interpreter: v.interpreter || null } });
   let smsSent = false;
   if (consent && phone) {
     await recordConsent(phone, "opt_in", "app_form");

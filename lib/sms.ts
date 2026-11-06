@@ -42,6 +42,7 @@ async function deliver(to: string, body: string): Promise<{ status: string; sid:
   if (!twilioConfigured()) return { status: "simulated", sid: null };
   const sid = process.env.TWILIO_ACCOUNT_SID!;
   const form = new URLSearchParams({ To: to, Body: body });
+  if (process.env.PUBLIC_BASE_URL) form.set("StatusCallback", `${process.env.PUBLIC_BASE_URL.replace(/\/$/, "")}/api/sms/status`);
   if (process.env.TWILIO_MESSAGING_SERVICE_SID) form.set("MessagingServiceSid", process.env.TWILIO_MESSAGING_SERVICE_SID); else form.set("From", process.env.TWILIO_FROM_NUMBER!);
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: "POST",
@@ -61,6 +62,16 @@ export async function sendSms(opts: { phone: string; body: string; referralId?: 
   const kind = opts.kind ?? "message";
   const exempt = kind === "opt_out_confirmation" || kind === "help_reply";
   if (!exempt && (await consentStatus(opts.phone)) !== "opted_in") return { ok: false as const, reason: "no_consent" };
+  // SMS-pumping protection: one automated confirmation per number per day, and a global daily ceiling.
+  if (kind === "confirmation") {
+    const recent = await q1<{ n: number }>("SELECT count(*)::int n FROM sms_messages WHERE phone = $1 AND kind = 'confirmation' AND created_at > now() - interval '24 hours'", [opts.phone]);
+    if ((recent?.n ?? 0) >= 1) return { ok: false as const, reason: "throttled" };
+  }
+  const today = await q1<{ n: number }>("SELECT count(*)::int n FROM sms_messages WHERE direction = 'out' AND created_at > now() - interval '24 hours'");
+  if ((today?.n ?? 0) >= Number(process.env.SMS_DAILY_CAP || 500)) {
+    await audit({ actorId: null, actorLabel: "System", action: "SMS daily cap reached; message held", entity: "sms" });
+    return { ok: false as const, reason: "daily_cap" };
+  }
   const { segments } = segmentCount(opts.body);
   const r = await deliver(opts.phone, opts.body);
   const id = newId();
@@ -71,11 +82,13 @@ export async function sendSms(opts: { phone: string; body: string; referralId?: 
 }
 
 /** Handles an inbound text (Twilio webhook or the console's demo simulator). Returns the auto-reply, if any. */
-export async function handleInbound(fromRaw: string, bodyRaw: string, source: string): Promise<string | null> {
+export async function handleInbound(fromRaw: string, bodyRaw: string, source: string, messageSid?: string): Promise<string | null> {
   const phone = normalizePhone(fromRaw) ?? fromRaw;
+  // Idempotency: Twilio may retry a webhook; the same MessageSid is processed once.
+  if (messageSid && (await q1("SELECT 1 FROM sms_messages WHERE provider_sid = $1", [messageSid]))) return null;
   const body = (bodyRaw || "").trim().slice(0, 1600);
   const ref = await q1<{ id: string; language: string; status: string }>("SELECT id, language, status FROM referrals WHERE phone = $1 ORDER BY created_at DESC LIMIT 1", [phone]);
-  await q("INSERT INTO sms_messages (id, referral_id, phone, direction, body, status) VALUES ($1,$2,$3,'in',$4,'received')", [newId(), ref?.id ?? null, phone, body]);
+  await q("INSERT INTO sms_messages (id, referral_id, phone, direction, body, status, provider_sid) VALUES ($1,$2,$3,'in',$4,'received',$5) ON CONFLICT DO NOTHING", [newId(), ref?.id ?? null, phone, body, messageSid ?? null]);
   const word = body.toUpperCase().replace(/[^A-Z]/g, "");
   const es = ref?.language === "es";
   let reply: string | null = null; let kind = "message";
@@ -106,4 +119,27 @@ export function validTwilioSignature(url: string, params: Record<string, string>
   const expected = createHmac("sha1", token).update(Buffer.from(data, "utf-8")).digest("base64");
   const a = Buffer.from(expected); const b = Buffer.from(signature);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Delivery status from the provider (queued → sent → delivered | failed | undelivered). */
+export async function applyStatus(sid: string, status: string) {
+  const allowed = ["queued", "sending", "sent", "delivered", "undelivered", "failed", "read"];
+  if (!allowed.includes(status)) return false;
+  const r = await q("UPDATE sms_messages SET status = $2 WHERE provider_sid = $1 AND direction = 'out' RETURNING id", [sid, status]);
+  return r.length > 0;
+}
+
+/** Retries failed outbound messages up to 3 attempts, re-checking consent each time (scheduled job). */
+export async function retryFailed() {
+  const rows = await q<{ id: string; phone: string; body: string; kind: string; attempts: number }>(
+    "SELECT id, phone, body, kind, attempts FROM sms_messages WHERE direction = 'out' AND status LIKE 'failed%' AND attempts < 3 AND created_at > now() - interval '24 hours' ORDER BY created_at LIMIT 50");
+  let sent = 0;
+  for (const m of rows) {
+    const exempt = m.kind === "opt_out_confirmation" || m.kind === "help_reply";
+    if (!exempt && (await consentStatus(m.phone)) !== "opted_in") { await q("UPDATE sms_messages SET status = 'cancelled: no consent' WHERE id = $1", [m.id]); continue; }
+    const r = await deliver(m.phone, m.body);
+    await q("UPDATE sms_messages SET status = $2, provider_sid = COALESCE($3, provider_sid), attempts = attempts + 1 WHERE id = $1", [m.id, r.status, r.sid]);
+    if (!r.status.startsWith("failed")) sent++;
+  }
+  return { checked: rows.length, sent };
 }

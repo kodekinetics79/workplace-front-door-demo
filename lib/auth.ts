@@ -4,31 +4,60 @@ import { q1, q } from "./db";
 import { HttpError } from "./http";
 import { can, type Permission, type Role } from "./rbac";
 import { audit } from "./audit";
+import { verifyTotp } from "./totp";
 
 export const SESSION_COOKIE = "wp_staff";
 const SESSION_HOURS = 8;
 let dummyHash: string | null = null;
 const dummy = async () => (dummyHash ??= await bcrypt.hash("timing-equalizer", 10));
-const secret = () => new TextEncoder().encode(process.env.SESSION_SECRET || "dev-only-secret-change-me-in-production-0001");
+function secret() {
+  const s = process.env.SESSION_SECRET;
+  if (!s || s.length < 32) {
+    // Fail closed: production never runs with a missing or weak signing key.
+    if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEV_SECRET !== "1") throw new Error("SESSION_SECRET (32+ chars) is required in production");
+    return new TextEncoder().encode("dev-only-secret-change-me-in-production-0001");
+  }
+  return new TextEncoder().encode(s);
+}
 
 export type Staff = { id: string; email: string; name: string; role: Role };
 
-export async function login(email: string, password: string): Promise<{ token: string; staff: Staff }> {
-  const u = await q1<{ id: string; email: string; name: string; role: Role; password_hash: string; token_version: number; active: boolean; failed_logins: number; locked_until: string | null }>(
-    "SELECT * FROM staff_users WHERE lower(email) = lower($1)", [email]);
+type UserRow = { id: string; email: string; name: string; role: Role; password_hash: string; token_version: number; active: boolean; failed_logins: number; locked_until: string | null; mfa_secret: string | null };
+
+async function issueSession(u: UserRow) {
+  await q("UPDATE staff_users SET failed_logins = 0, locked_until = NULL, last_login_at = now() WHERE id = $1", [u.id]);
+  const token = await new SignJWT({ role: u.role, tv: u.token_version, amr: u.mfa_secret ? ["pwd", "otp"] : ["pwd"] }).setProtectedHeader({ alg: "HS256" }).setSubject(u.id)
+    .setIssuedAt().setExpirationTime(`${SESSION_HOURS}h`).sign(secret());
+  await audit({ actorId: u.id, actorLabel: u.name, action: u.mfa_secret ? "Signed in (password + authenticator code)" : "Signed in", entity: "session" });
+  return { token, staff: { id: u.id, email: u.email, name: u.name, role: u.role } };
+}
+async function failed(u: UserRow, what: string) {
+  await q("UPDATE staff_users SET failed_logins = failed_logins + 1, locked_until = CASE WHEN failed_logins + 1 >= 5 THEN now() + interval '15 minutes' ELSE NULL END WHERE id = $1", [u.id]);
+  await audit({ actorId: u.id, actorLabel: u.name, action: what, entity: "session" });
+}
+
+/** Step 1: password. Returns a session directly only for accounts without MFA; otherwise a 5-minute MFA challenge. */
+export async function login(email: string, password: string): Promise<{ token: string; staff: Staff } | { mfa: string }> {
+  const u = await q1<UserRow>("SELECT * FROM staff_users WHERE lower(email) = lower($1)", [email]);
   const generic = new HttpError(401, "invalid_credentials", "Email or password is incorrect");
   if (!u || !u.active) { await bcrypt.compare(password, await dummy()); throw generic; }
   if (u.locked_until && new Date(u.locked_until) > new Date()) throw new HttpError(423, "locked", "Account temporarily locked after repeated failed sign-ins. Try again in 15 minutes.");
-  if (!(await bcrypt.compare(password, u.password_hash))) {
-    await q("UPDATE staff_users SET failed_logins = failed_logins + 1, locked_until = CASE WHEN failed_logins + 1 >= 5 THEN now() + interval '15 minutes' ELSE NULL END WHERE id = $1", [u.id]);
-    await audit({ actorId: u.id, actorLabel: u.name, action: "Failed sign-in", entity: "session" });
-    throw generic;
-  }
-  await q("UPDATE staff_users SET failed_logins = 0, locked_until = NULL, last_login_at = now() WHERE id = $1", [u.id]);
-  const token = await new SignJWT({ role: u.role, tv: u.token_version }).setProtectedHeader({ alg: "HS256" }).setSubject(u.id)
-    .setIssuedAt().setExpirationTime(`${SESSION_HOURS}h`).sign(secret());
-  await audit({ actorId: u.id, actorLabel: u.name, action: "Signed in", entity: "session" });
-  return { token, staff: { id: u.id, email: u.email, name: u.name, role: u.role } };
+  if (!(await bcrypt.compare(password, u.password_hash))) { await failed(u, "Failed sign-in (password)"); throw generic; }
+  if (!u.mfa_secret) return issueSession(u);
+  const mfa = await new SignJWT({ purpose: "mfa", tv: u.token_version }).setProtectedHeader({ alg: "HS256" }).setSubject(u.id).setIssuedAt().setExpirationTime("5m").sign(secret());
+  return { mfa };
+}
+
+/** Step 2: authenticator code against the challenge from step 1. */
+export async function verifyMfa(challenge: string, code: string) {
+  let sub: string | undefined; let tv: unknown;
+  try { const { payload } = await jwtVerify(challenge, secret(), { algorithms: ["HS256"] }); if (payload.purpose !== "mfa") throw new Error(); sub = payload.sub; tv = payload.tv; }
+  catch { throw new HttpError(401, "mfa_expired", "Your sign-in expired. Start again."); }
+  const u = await q1<UserRow>("SELECT * FROM staff_users WHERE id = $1", [sub]);
+  if (!u || !u.active || u.token_version !== tv || !u.mfa_secret) throw new HttpError(401, "mfa_expired", "Your sign-in expired. Start again.");
+  if (u.locked_until && new Date(u.locked_until) > new Date()) throw new HttpError(423, "locked", "Account temporarily locked after repeated failed sign-ins. Try again in 15 minutes.");
+  if (!verifyTotp(u.mfa_secret, code.trim())) { await failed(u, "Failed sign-in (authenticator code)"); throw new HttpError(401, "bad_code", "That code is not right. Check your authenticator app and try again."); }
+  return issueSession(u);
 }
 
 export function sessionCookie(token: string) {
@@ -48,6 +77,7 @@ export async function staffFromToken(token: string | null | undefined): Promise<
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
+    if (payload.purpose === "mfa") return null; // a half-finished sign-in is never a session
     const u = await q1<Staff & { token_version: number; active: boolean }>("SELECT id, email, name, role, token_version, active FROM staff_users WHERE id = $1", [payload.sub]);
     if (!u || !u.active || u.token_version !== payload.tv) return null;
     return { id: u.id, email: u.email, name: u.name, role: u.role };

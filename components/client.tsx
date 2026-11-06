@@ -15,8 +15,90 @@ export function ping(name: string, props: Record<string, string | number | boole
   } catch { /* analytics must never break the app */ }
 }
 export function SessionPing() {
-  useEffect(() => { try { if (!sessionStorage.getItem("wp_s")) { sessionStorage.setItem("wp_s", "1"); ping("session_start"); } } catch {} }, []);
+  useEffect(() => {
+    try { if (!sessionStorage.getItem("wp_s")) { sessionStorage.setItem("wp_s", "1"); ping("session_start"); } } catch {}
+    if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }, []);
   return null;
+}
+
+/* ---------- offline outbox: a request typed without signal is sent when signal returns ---------- */
+const OUTBOX = "wp_outbox";
+export function holdOffline(body: unknown) { try { const cur = JSON.parse(localStorage.getItem(OUTBOX) || "[]"); cur.push(body); localStorage.setItem(OUTBOX, JSON.stringify(cur.slice(-3))); } catch {} }
+export function OutboxFlusher({ sentText }: { sentText: string }) {
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => {
+    const flush = async () => {
+      let items: unknown[] = []; try { items = JSON.parse(localStorage.getItem(OUTBOX) || "[]"); } catch {}
+      if (!items.length || !navigator.onLine) return;
+      const left: unknown[] = [];
+      for (const b of items) {
+        try { const r = await fetch("/api/requests", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }); const d = await r.json().catch(() => ({}));
+          if (r.ok && d.ref) { localStorage.setItem("wp_last_ref", d.ref); setMsg(sentText.replace("{ref}", d.ref)); } else if (r.status >= 500) left.push(b); }
+        catch { left.push(b); }
+      }
+      localStorage.setItem(OUTBOX, JSON.stringify(left));
+    };
+    flush(); window.addEventListener("online", flush); return () => window.removeEventListener("online", flush);
+  }, [sentText]);
+  if (!msg) return null;
+  return <div role="status" className="toast"><span>{msg}</span><button type="button" className="icon-btn" aria-label="Close" onClick={() => setMsg(null)}><Icon name="x" /></button></div>;
+}
+
+/* ---------- lobby kiosk mode: shared device in an American Job Center ---------- */
+export const isKiosk = () => { try { return localStorage.getItem("wp_kiosk") === "1"; } catch { return false; } };
+export function KioskGuard({ t }: { t: Dict }) {
+  const router = useRouter();
+  const [on, setOn] = useState(false); const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => { setOn(isKiosk()); }, []);
+  useEffect(() => {
+    if (!on) return;
+    let last = Date.now();
+    const bump = () => { last = Date.now(); setLeft(null); };
+    const ev = ["pointerdown", "keydown", "scroll", "touchstart"]; ev.forEach((e) => window.addEventListener(e, bump, { passive: true }));
+    const iv = setInterval(() => {
+      const idle = (Date.now() - last) / 1000;
+      if (idle >= 90) {
+        try { ["wp_saved", "wp_last_ref", "wp_outbox", "wp_text", "wp_contrast"].forEach((k) => localStorage.removeItem(k)); sessionStorage.clear(); } catch {}
+        document.cookie = "lang=; Path=/; Max-Age=0"; last = Date.now(); setLeft(null); router.push("/kiosk"); router.refresh();
+      } else if (idle >= 70) setLeft(Math.ceil(90 - idle));
+    }, 1000);
+    return () => { clearInterval(iv); ev.forEach((e) => window.removeEventListener(e, bump)); };
+  }, [on, router]);
+  if (!on || left === null) return null;
+  return (
+    <div role="alertdialog" aria-modal="true" aria-labelledby="k-left" className="sheet" style={{ zIndex: 60 }}>
+      <p id="k-left" style={{ fontSize: "1.25rem", fontWeight: 800 }}>{t.k_clear.replace("{n}", String(left))}</p>
+      <button type="button" className="btn btn-primary" autoFocus onClick={() => setLeft(null)}>{t.k_stay}</button>
+    </div>
+  );
+}
+export function KioskToggle({ t }: { t: Dict }) {
+  const [on, setOn] = useState(false);
+  useEffect(() => { setOn(isKiosk()); }, []);
+  return on
+    ? <button type="button" className="c-btn" onClick={() => { localStorage.removeItem("wp_kiosk"); setOn(false); location.reload(); }}>{t.k_exit}</button>
+    : <button type="button" className="c-btn" onClick={() => { localStorage.setItem("wp_kiosk", "1"); setOn(true); location.reload(); }}>{t.k_start}</button>;
+}
+
+/* ---------- nearest area from device location (optional, never stored) ---------- */
+const AREAS: [string, number, number][] = [["bridgeport", 41.1865, -73.1952], ["stamford", 41.0534, -73.5387], ["valley", 41.3426, -73.0790]];
+export function NearestArea({ t, hidden }: { t: Dict; hidden: Record<string, string> }) {
+  const router = useRouter(); const [state, setState] = useState<"idle" | "wait" | "err">("idle");
+  if (typeof navigator !== "undefined" && !("geolocation" in navigator)) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <button type="button" className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} disabled={state === "wait"} onClick={() => {
+        setState("wait");
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const { latitude: a, longitude: b } = pos.coords;
+          const best = AREAS.map(([k, x, y]) => [k, (x - a) ** 2 + (y - b) ** 2] as const).sort((p, q) => p[1] - q[1])[0][0];
+          const u = new URLSearchParams({ ...hidden, town: best }); router.push(`/services?${u}`); setState("idle");
+        }, () => setState("err"), { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 });
+      }}><Icon name="pin" size={18} />{state === "wait" ? t.geo_wait : t.geo_btn}</button>
+      {state === "err" && <span role="alert" className="err">{t.geo_err}</span>}
+    </div>
+  );
 }
 export function Ping({ name, props }: { name: string; props?: Record<string, string | number | boolean> }) {
   const done = useRef(false);
