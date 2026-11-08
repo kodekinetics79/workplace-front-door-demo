@@ -1,14 +1,18 @@
 {
   "expo": {
-    "name": "WorkPlace (demo)",
+    "name": "Front Door Demo",
     "slug": "workplace-front-door-demo",
-    "version": "1.0.0",
+    "version": "0.9.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "org.workplace.frontdoor.demo"
+      "bundleIdentifier": "com.kodekinetics.frontdoordemo",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +22,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "org.workplace.frontdoor.demo"
+      "package": "com.kodekinetics.frontdoordemo",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"
