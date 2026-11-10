@@ -10,13 +10,13 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-DEMO-URL"
+        "EXPO_PUBLIC_API_URL": "https://workplace-demo-mu.vercel.app"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://REPLACE-WITH-DEMO-URL"
+        "EXPO_PUBLIC_API_URL": "https://workplace-demo-mu.vercel.app"
       }
     }
   },
