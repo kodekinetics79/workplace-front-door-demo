@@ -57,3 +57,52 @@ export const EVENTS: CommunityEvent[] = [
 ];
 
 export const CONSENT_TEXT_VERSION = "sms-consent-v1.0";
+
+/**
+ * The WorkPlace's own published program catalogue, taken from the public page
+ * workplace.org/programs on 10 November 2026. Titles and links are theirs and are
+ * reproduced unchanged; nothing here is invented. Every record is loaded as a DRAFT
+ * so the content console shows the real review queue: WorkPlace staff write the
+ * plain-language wording, assign the goal, towns and formats, and publish. This
+ * mirrors Bidder Q&A items 24 and 25 — near-term content is WorkPlace programs at
+ * workplace.org/programs, maintained by WorkPlace staff, complementing the website
+ * rather than reproducing it.
+ */
+export const WORKPLACE_PUBLISHED: { slug: string; title: string; url: string }[] = [
+  { slug: "cna", title: "Certified Nursing Assistant (CNA)", url: "https://www.workplace.org/certified-nursing-assistant/" },
+  { slug: "mw-healthcare", title: "MaturityWorks Healthcare Careers", url: "https://www.workplace.org/mw-healthcare-careers/" },
+  { slug: "p2e-youth", title: "Platform to Employment Youth", url: "https://www.workplace.org/platform-to-employment-youth/" },
+  { slug: "p2e", title: "Platform to Employment", url: "https://www.workplace.org/p2e-re-entry/" },
+  { slug: "second-chance", title: "Second Chance Re-Entry Program", url: "https://www.workplace.org/second-chance/" },
+  { slug: "maturityworks", title: "MaturityWorks", url: "https://www.workplace.org/maturityworks/" },
+  { slug: "mortgage-crisis", title: "Mortgage Crisis Job Training Program", url: "https://www.workplace.org/mortgage-crisis-job-training-program/" },
+  { slug: "dress-for-success", title: "Dress for Success Mid-Fairfield County", url: "https://www.workplace.org/dress-for-success/" },
+  { slug: "vr-training", title: "Virtual Reality Training", url: "https://www.workplace.org/virtual-reality-training/" },
+  { slug: "energyworks", title: "EnergyWorks", url: "https://www.workplace.org/energyworks/" },
+  { slug: "health-careerx", title: "Health CareeRx Academy", url: "https://www.workplace.org/health-career-academy/" },
+  { slug: "careerhub", title: "CareerHub", url: "https://www.workplace.org/careerhub/" },
+  { slug: "bbf", title: "Building Better Futures", url: "https://www.workplace.org/bbf/" },
+  { slug: "youthbuild", title: "YouthBuild", url: "https://www.workplace.org/youthbuild/" },
+  { slug: "manufacturing", title: "Manufacturing & Advanced Technology Training", url: "https://www.workplace.org/manufacturing-and-advanced-technology/" },
+  { slug: "project-retail", title: "Project Retail", url: "https://www.workplace.org/retail-job-training-program/" },
+  { slug: "veterans-program", title: "Veterans", url: "https://www.workplace.org/veterans/" },
+  { slug: "military-machinist", title: "Military to Machinist", url: "https://www.workplace.org/military-to-machinist/" },
+  { slug: "etm", title: "Employment Transition Model (ETM)", url: "https://www.workplace.org/employment-transition-model-etm/" },
+  { slug: "ajc", title: "American Job Centers", url: "https://www.workplace.org/american-job-center/" },
+  { slug: "career-coach", title: "Career Coach", url: "https://www.workplace.org/career-coach/" },
+  { slug: "jobs-first", title: "Jobs First Employment Services", url: "https://www.workplace.org/jobs-first-employment-services/" },
+  { slug: "engage-staffing", title: "Engage Staffing", url: "https://www.workplace.org/engage-staffing/" },
+  { slug: "bs-recruitment", title: "Business Services: Recruitment", url: "https://workplace.org/business-services/#recruitment" },
+  { slug: "bs-industry-training", title: "Business Services: Industry Training", url: "https://workplace.org/business-services/#industry-training" },
+  { slug: "bs-layoff-aversion", title: "Business Services: Layoff Aversion", url: "https://workplace.org/business-services/#layoff-aversion" },
+  { slug: "bs-labor-market", title: "Business Services: Labor Market", url: "https://workplace.org/business-services/#labor-market" },
+];
+
+const REVIEW_NOTE =
+  "Loaded from The WorkPlace's published program list at workplace.org/programs (public information, 10 Nov 2026). Awaiting WorkPlace review: staff write the plain-language summary, set who it is for, and assign goal, towns and formats before publishing.";
+
+/** The real catalogue as draft records, so the review queue is populated on first load. */
+export const WORKPLACE_DRAFT_SEED: ServiceSeed[] = WORKPLACE_PUBLISHED.map((p) => {
+  const text = s("WorkPlace program", p.title, REVIEW_NOTE, "To be confirmed by WorkPlace staff during review.", `Program page: ${p.url}`, "To be confirmed by WorkPlace staff during review.");
+  return { id: `wp-${p.slug}`, goals: [], formats: [], towns: [], state: "draft" as const, doc: { en: text, es: { ...text, type: "Programa de The WorkPlace" } } };
+});

@@ -17,6 +17,7 @@ export default async function PublicLayout({ children }: { children: React.React
         </div>
       </header>
       <main id="main" className="public-main" tabIndex={-1}>{children}</main>
+      <p className="demo-footnote" role="note">{t.demo_notice}</p>
       <TabBar t={t} />
       <SessionPing />
       <OutboxFlusher sentText={t.offline_sent} />

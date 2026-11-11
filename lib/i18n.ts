@@ -1,7 +1,8 @@
 import type { Lang } from "./content";
 
 const en = {
-  demo_banner: "Demonstration built by Kode Kinetics for The WorkPlace RFP. Sample data only; please do not enter real personal information.",
+  demo_banner: "Demonstration built by Kode Kinetics for The WorkPlace RFP. Not affiliated with or endorsed by The WorkPlace, Inc. Sample data only; please do not enter real personal information.",
+  demo_notice: "This is a vendor demonstration, not a WorkPlace service. Program names and links are public information from workplace.org and are shown unapproved, awaiting WorkPlace review. No request made here reaches The WorkPlace, and we will restrict or remove access at The WorkPlace's request. For help, contact The WorkPlace directly at (203) 610-8500.",
   skip: "Skip to main content", app_name: "The WorkPlace", back: "Back", lang_label: "Language",
   nav: "Main", nav_discover: "Discover", nav_saved: "Saved", nav_track: "Track", nav_help: "Help",
   a11y_h: "Display settings", text_size: "Text size", contrast: "High contrast", on: "On", off: "Off", listen: "Listen", stop_listen: "Stop",
@@ -70,7 +71,8 @@ const en = {
 export type Dict = typeof en;
 
 const es: Dict = {
-  demo_banner: "Demostración creada por Kode Kinetics para la licitación de The WorkPlace. Solo datos de muestra; no escriba información personal real.",
+  demo_banner: "Demostración creada por Kode Kinetics para la licitación de The WorkPlace. Sin afiliación ni respaldo de The WorkPlace, Inc. Solo datos de muestra; no escriba información personal real.",
+  demo_notice: "Esta es una demostración de un proveedor, no un servicio de The WorkPlace. Los nombres y enlaces de programas son información pública de workplace.org y se muestran sin aprobación, pendientes de revisión. Ninguna solicitud hecha aquí llega a The WorkPlace. Para ayuda, llame a The WorkPlace al (203) 610-8500.",
   skip: "Ir al contenido principal", app_name: "The WorkPlace", back: "Atrás", lang_label: "Idioma",
   nav: "Principal", nav_discover: "Explorar", nav_saved: "Guardados", nav_track: "Seguimiento", nav_help: "Ayuda",
   a11y_h: "Ajustes de pantalla", text_size: "Tamaño del texto", contrast: "Alto contraste", on: "Sí", off: "No", listen: "Escuchar", stop_listen: "Detener",

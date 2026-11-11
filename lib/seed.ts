@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { SERVICE_SEED, CONSENT_TEXT_VERSION } from "./content";
+import { SERVICE_SEED, WORKPLACE_DRAFT_SEED, CONSENT_TEXT_VERSION } from "./content";
 import { appendAuditWith } from "./audit";
 import { newId } from "./ids";
 import { newTotpSecret } from "./totp";
@@ -21,7 +21,7 @@ export async function seed(query: Query) {
       [a.id, a.email, a.name, a.role, await bcrypt.hash(a.password, 10), newTotpSecret()]);
   }
   await query("INSERT INTO staff_users (id, email, name, role, password_hash, active) VALUES ('u_system','system@demo.workplace','System','admin',$1,FALSE) ON CONFLICT (id) DO NOTHING", [await bcrypt.hash(newId() + newId(), 10)]);
-  for (const s of SERVICE_SEED) {
+  for (const s of [...SERVICE_SEED, ...WORKPLACE_DRAFT_SEED]) {
     const live = s.state === "published" ? JSON.stringify(s.doc) : null;
     await query("INSERT INTO services (id, goals, formats, towns, state, live, draft, updated_by) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8) ON CONFLICT (id) DO NOTHING",
       [s.id, s.goals, s.formats, s.towns, s.state, live, JSON.stringify(s.doc), "u_publisher"]);
