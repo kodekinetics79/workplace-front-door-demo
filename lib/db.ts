@@ -1,5 +1,5 @@
 import { SCHEMA_SQL } from "./schema";
-import { seed } from "./seed";
+import { seed, syncPublishedCatalogue } from "./seed";
 
 export type Row = Record<string, unknown>;
 type Runner = { query: (text: string, params?: unknown[]) => Promise<Row[]>; exec: (text: string) => Promise<void> };
@@ -42,6 +42,7 @@ async function ready(): Promise<void> {
       await r.exec(SCHEMA_SQL);
       const rows = await r.query("SELECT value FROM app_meta WHERE key = 'seeded'");
       if (!rows.length) await seed(r.query);
+      else await syncPublishedCatalogue(r.query);
     })().catch((e) => { readyPromise = null; throw e; });
   }
   return readyPromise;

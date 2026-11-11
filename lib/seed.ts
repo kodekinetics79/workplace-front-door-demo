@@ -15,6 +15,18 @@ export const DEMO_ACCOUNTS = [
 
 const ago = (mins: number) => new Date(Date.now() - mins * 60000).toISOString();
 
+/**
+ * Tops up The WorkPlace's published program catalogue on an already-seeded database,
+ * so a redeploy picks up catalogue changes without wiping demo data. Only inserts
+ * records that are absent; never overwrites staff edits to an existing draft.
+ */
+export async function syncPublishedCatalogue(query: Query) {
+  for (const s of WORKPLACE_DRAFT_SEED) {
+    await query("INSERT INTO services (id, goals, formats, towns, state, live, draft, updated_by) VALUES ($1,$2,$3,$4,$5,NULL,$6::jsonb,$7) ON CONFLICT (id) DO NOTHING",
+      [s.id, s.goals, s.formats, s.towns, s.state, JSON.stringify(s.doc), "u_publisher"]);
+  }
+}
+
 export async function seed(query: Query) {
   for (const a of DEMO_ACCOUNTS) {
     await query("INSERT INTO staff_users (id, email, name, role, password_hash, mfa_secret) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING",
