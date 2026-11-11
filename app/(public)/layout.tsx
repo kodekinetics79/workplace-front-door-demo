@@ -8,7 +8,7 @@ export default async function PublicLayout({ children }: { children: React.React
   return (
     <div className="app">
       <a href="#main" className="skip">{t.skip}</a>
-      <div className="demo-note" role="note"><Icon name="info" size={16} /><span>{t.demo_banner}</span></div>
+      <div className="demo-note" role="note"><Icon name="info" size={16} /><span>{t.demo_banner} <a href="/evaluate" style={{ fontWeight: 700 }}>Evaluator guide</a></span></div>
       <header className="topbar glass glass-d">
         <Link href="/" className="brand"><Mark /><span>{t.app_name}</span></Link>
         <div className="top-actions">
